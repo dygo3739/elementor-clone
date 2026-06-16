@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ElementorClone — Clone Any Page to Elementor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent:      #f43f5e;
+      --accent-h:    #e11d48;
+      --accent-light:#fff1f2;
+      --text-dark:   #0f172a;
+      --text-mid:    #475569;
+      --text-muted:  #94a3b8;
+      --ghost-bg:    #f8fafc;
+      --border:      #e2e8f0;
+      --white:       #ffffff;
+      --radius:      8px;
+      --font:        -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --green:       #10b981;
+      --red:         #ef4444;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--ghost-bg);
+      color: var(--text-dark);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 200;
+    }
+    .logo { display: flex; align-items: center; gap: 9px; text-decoration: none; }
+    .logo-mark {
+      width: 30px; height: 30px;
+      background: var(--accent);
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .logo-mark svg { width: 16px; height: 16px; }
+    .logo-name { font-size: 15px; font-weight: 700; color: var(--text-dark); letter-spacing: -0.3px; }
+    .logo-name span { color: var(--accent); }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .api-key-wrap { position: relative; }
+    .api-key-wrap input {
+      font-family: var(--font); font-size: 12px; color: var(--text-dark);
+      background: var(--ghost-bg); border: 1px solid var(--border);
+      border-radius: 6px; padding: 6px 52px 6px 10px; width: 220px; outline: none;
+    }
+    .api-key-wrap input:focus { border-color: var(--accent); background: var(--white); }
+    .api-toggle {
+      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+      font-family: var(--font); font-size: 10px; font-weight: 600;
+      color: var(--accent); background: none; border: none; cursor: pointer; padding: 2px 4px;
+    }
+    .api-link { font-size: 11px; color: var(--text-muted); text-decoration: none; }
+    .api-link:hover { color: var(--accent); }
+
+    /* ── Main layout ── */
+    main {
+      flex: 1; display: grid;
+      grid-template-columns: 400px 1fr;
+      min-height: calc(100vh - 56px);
+    }
+
+    .panel {
+      background: var(--white);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow-y: auto;
+    }
+    .panel-header { padding: 22px 22px 0; }
+    .panel-title { font-size: 17px; font-weight: 700; color: var(--text-dark); margin-bottom: 4px; }
+    .panel-subtitle { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+    .panel-body { padding: 18px 22px 22px; display: flex; flex-direction: column; gap: 16px; flex: 1; }
+
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label {
+      font-size: 10px; font-weight: 700; color: var(--text-muted);
+      letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .url-input-row { display: flex; gap: 0; }
+    .url-input-row input {
+      flex: 1; font-family: var(--font); font-size: 14px; color: var(--text-dark);
+      background: var(--ghost-bg); border: 1px solid var(--border);
+      border-radius: 8px 0 0 8px; padding: 11px 14px; outline: none;
+      border-right: none;
+    }
+    .url-input-row input:focus { border-color: var(--accent); background: var(--white); }
+    .btn-fetch {
+      font-family: var(--font); font-size: 13px; font-weight: 600;
+      color: white; background: var(--text-dark); border: none;
+      border-radius: 0 8px 8px 0; padding: 0 18px; cursor: pointer;
+      transition: background 0.15s; white-space: nowrap;
+    }
+    .btn-fetch:hover:not(:disabled) { background: #1e293b; }
+    .btn-fetch:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .fetch-status {
+      display: none; align-items: center; gap: 8px;
+      font-size: 12px; padding: 10px 12px; border-radius: 8px;
+      background: var(--ghost-bg); border: 1px solid var(--border);
+    }
+    .fetch-status.show { display: flex; }
+    .fetch-status.success { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+    .fetch-status.error   { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+    .fetch-status-icon { width: 14px; height: 14px; flex-shrink: 0; }
+
+    .page-preview {
+      display: none; border: 1px solid var(--border); border-radius: 8px;
+      overflow: hidden; background: var(--white);
+    }
+    .page-preview.show { display: block; }
+    .page-preview-header {
+      background: var(--ghost-bg); padding: 8px 12px;
+      font-size: 11px; color: var(--text-muted); border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .page-preview-stats { display: flex; gap: 10px; }
+    .page-preview-body { max-height: 140px; overflow-y: auto; padding: 10px 12px; }
+    .page-preview-title { font-size: 13px; font-weight: 700; color: var(--text-dark); margin-bottom: 3px; }
+    .page-preview-desc { font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+
+    .segment {
+      display: flex; background: var(--ghost-bg);
+      border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+    }
+    .segment-btn {
+      flex: 1; font-family: var(--font); font-size: 12px; font-weight: 500;
+      color: var(--text-mid); background: transparent; border: none;
+      padding: 8px 0; cursor: pointer; transition: all 0.15s;
+    }
+    .segment-btn.active {
+      background: var(--white); color: var(--accent); font-weight: 600;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+      border-radius: calc(var(--radius) - 1px); margin: 2px;
+    }
+
+    .checkbox-row {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; color: var(--text-mid); cursor: pointer;
+    }
+    .checkbox-row input { width: 14px; height: 14px; cursor: pointer; accent-color: var(--accent); }
+
+    .btn-generate {
+      font-family: var(--font); font-size: 14px; font-weight: 700;
+      color: var(--white); background: var(--accent); border: none;
+      border-radius: var(--radius); padding: 13px; cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+    }
+    .btn-generate:hover:not(:disabled) { background: var(--accent-h); }
+    .btn-generate:active:not(:disabled) { transform: scale(0.99); }
+    .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; }
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.4); border-top-color: white;
+      border-radius: 50%; animation: spin 0.7s linear infinite; display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .notice {
+      font-size: 11px; color: var(--text-muted); line-height: 1.6;
+      background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px;
+      padding: 10px 12px;
+    }
+    .notice strong { color: #92400e; }
+
+    .history-section { border-top: 1px solid var(--border); padding: 14px 22px 18px; }
+    .history-title {
+      font-size: 10px; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;
+    }
+    .history-item {
+      display: flex; align-items: center; gap: 7px;
+      padding: 6px 8px; border-radius: 6px; cursor: pointer; transition: background 0.1s;
+    }
+    .history-item:hover { background: var(--ghost-bg); }
+    .history-item.active { background: var(--accent-light); }
+    .history-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+    .history-name { font-size: 11px; color: var(--text-mid); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Output panel ── */
+    .output-panel { display: flex; flex-direction: column; overflow: hidden; }
+    .output-toolbar {
+      background: var(--white); border-bottom: 1px solid var(--border);
+      padding: 0 20px; height: 48px;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-shrink: 0;
+    }
+    .output-meta { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .output-name { font-size: 12px; font-weight: 600; color: var(--text-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+    .stage-badge {
+      font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+      background: #fef3c7; color: #92400e; letter-spacing: 0.3px; display: none;
+    }
+    .stage-badge.building { background: #ede9fe; color: #5b21b6; }
+    .stage-badge.done     { background: #d1fae5; color: #065f46; }
+
+    .toolbar-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .btn-tool {
+      font-family: var(--font); font-size: 11px; font-weight: 600;
+      border-radius: 5px; border: 1px solid var(--border);
+      background: var(--ghost-bg); color: var(--text-mid);
+      padding: 5px 12px; cursor: pointer; transition: all 0.12s;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .btn-tool:hover { background: var(--white); color: var(--text-dark); }
+    .btn-tool.primary { background: var(--accent); color: var(--white); border-color: var(--accent); }
+    .btn-tool.primary:hover { background: var(--accent-h); }
+
+    .output-body { flex: 1; overflow: auto; position: relative; }
+    #code-output {
+      font-family: 'SF Mono','Fira Code','Cascadia Code',monospace;
+      font-size: 12px; line-height: 1.65; color: #1e293b;
+      background: var(--white); padding: 24px 28px;
+      white-space: pre; min-height: 100%; outline: none; border: none; width: 100%; resize: none;
+      display: block;
+    }
+
+    .empty-state {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 12px; padding: 0 40px; text-align: center;
+    }
+    .empty-icon {
+      width: 56px; height: 56px; background: var(--accent-light);
+      border-radius: 14px; display: flex; align-items: center; justify-content: center;
+    }
+    .empty-title { font-size: 15px; font-weight: 700; color: var(--text-dark); }
+    .empty-sub { font-size: 12px; color: var(--text-muted); max-width: 320px; line-height: 1.6; }
+
+    .status-bar {
+      background: var(--white); border-top: 1px solid var(--border);
+      padding: 0 20px; height: 32px;
+      display: flex; align-items: center; gap: 14px; flex-shrink: 0;
+    }
+    .status-item { font-size: 10px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+    .status-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--text-muted); }
+    .status-dot.green { background: var(--green); }
+    .status-dot.blue  { background: var(--accent); }
+    .status-dot.red   { background: var(--red); }
+
+    /* Analysis view (structure breakdown before JSON) */
+    .analysis-view { padding: 24px 28px; display: none; flex-direction: column; gap: 16px; overflow-y: auto; }
+    .analysis-view.show { display: flex; }
+    .analysis-section {
+      border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--white);
+    }
+    .analysis-header {
+      display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+      background: var(--ghost-bg); border-bottom: 1px solid var(--border);
+    }
+    .analysis-num {
+      width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: white;
+      font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .analysis-name { font-size: 13px; font-weight: 700; color: var(--text-dark); flex: 1; }
+    .analysis-layout { font-size: 10px; font-weight: 600; color: var(--text-muted); background: var(--border); border-radius: 4px; padding: 2px 7px; }
+    .analysis-body { padding: 10px 14px; font-size: 12px; color: var(--text-mid); line-height: 1.6; }
+    .analysis-bg-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-muted); }
+    .analysis-bg-swatch { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.1); flex-shrink: 0; }
+
+    #toast {
+      position: fixed; bottom: 20px; right: 20px;
+      background: var(--text-dark); color: white; font-size: 12px; font-weight: 500;
+      padding: 10px 16px; border-radius: 7px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      transform: translateY(60px); opacity: 0;
+      transition: transform 0.22s, opacity 0.22s; z-index: 999;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.error   { background: var(--red); }
+    #toast.success { background: var(--green); }
+
+    @media (max-width: 860px) {
+      main { grid-template-columns: 1fr; }
+      .panel { border-right: none; border-bottom: 1px solid var(--border); max-height: 60vh; }
+      .api-key-wrap input { width: 150px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <a class="logo" href="#">
+    <div class="logo-mark">
+      <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="8" cy="8" r="6.5" stroke="white" stroke-width="1.5"/>
+        <path d="M8 1.5v13M1.5 8h13" stroke="white" stroke-width="1.2" opacity="0.6"/>
+      </svg>
+    </div>
+    <span class="logo-name">Elementor<span>Clone</span></span>
+  </a>
+  <div class="header-right">
+    <div class="api-key-wrap">
+      <input type="password" id="api-key" placeholder="sk-ant-… API key" autocomplete="off" />
+      <button class="api-toggle" onclick="toggleApiKey()">Show</button>
+    </div>
+    <a class="api-link" href="https://console.anthropic.com/settings/keys" target="_blank">Get key →</a>
+  </div>
+</header>
+
+<!-- ── MAIN ── -->
+<main>
+
+  <!-- LEFT PANEL -->
+  <aside class="panel">
+    <div class="panel-header">
+      <div class="panel-title">Clone a page</div>
+      <div class="panel-subtitle">Paste any public URL. ElementorClone fetches it, analyzes the structure, and rebuilds it as importable Elementor Pro JSON.</div>
+    </div>
+
+    <div class="panel-body">
+
+      <div class="field">
+        <label>Target URL</label>
+        <div class="url-input-row">
+          <input type="text" id="target-url" placeholder="https://example.com/landing-page" autocomplete="off" />
+          <button class="btn-fetch" id="btn-fetch" onclick="fetchPage()">Fetch</button>
+        </div>
+      </div>
+
+      <div class="fetch-status" id="fetch-status">
+        <svg class="fetch-status-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/></svg>
+        <span id="fetch-status-text">Fetching…</span>
+      </div>
+
+      <div class="page-preview" id="page-preview">
+        <div class="page-preview-header">
+          <span id="preview-domain">—</span>
+          <div class="page-preview-stats">
+            <span id="preview-size">—</span>
+            <span id="preview-elements">—</span>
+          </div>
+        </div>
+        <div class="page-preview-body">
+          <div class="page-preview-title" id="preview-title">—</div>
+          <div class="page-preview-desc" id="preview-desc">—</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Clone scope</label>
+        <div class="segment">
+          <button class="segment-btn active" data-val="full" onclick="setScope(this)">Full Page</button>
+          <button class="segment-btn" data-val="visible" onclick="setScope(this)">Above the Fold</button>
+        </div>
+      </div>
+
+      <label class="checkbox-row">
+        <input type="checkbox" id="opt-images" checked />
+        Keep original image URLs
+      </label>
+
+      <button class="btn-generate" id="btn-generate" onclick="cloneSite()" disabled>
+        <div class="spinner" id="spinner"></div>
+        <svg id="btn-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M7 1L9 5.5H13.5L10 8.5L11.5 13L7 10.5L2.5 13L4 8.5L0.5 5.5H5L7 1Z" fill="white"/>
+        </svg>
+        <span id="btn-label">Fetch a page first</span>
+      </button>
+
+      <div class="notice">
+        <strong>Note:</strong> This rebuilds page <strong>structure</strong> only — sections, layout, widget types, and real content placement. Colors, fonts, and fine styling are left at sensible defaults for you to customize in Elementor afterward. Fetching uses a public CORS proxy; sites with heavy bot protection or JS-rendered content may not fetch cleanly.
+      </div>
+
+    </div>
+
+    <div class="history-section">
+      <div class="history-title">Recent clones</div>
+      <div id="history-list">
+        <div style="font-size:11px;color:var(--text-muted);padding:4px 8px;">Nothing yet.</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- OUTPUT PANEL -->
+  <section class="output-panel">
+    <div class="output-toolbar">
+      <div class="output-meta">
+        <span class="output-name" id="output-name">—</span>
+        <span class="stage-badge" id="stage-badge"></span>
+      </div>
+      <div class="toolbar-actions" id="toolbar-json-actions" style="display:none">
+        <button class="btn-tool" id="btn-copy" onclick="copyJSON()">Copy</button>
+        <button class="btn-tool" id="btn-validate" onclick="validateJSON()">Validate</button>
+        <button class="btn-tool primary" id="btn-download" onclick="downloadJSON()">Download .json</button>
+      </div>
+    </div>
+
+    <div class="output-body" id="view-empty">
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+            <circle cx="13" cy="13" r="10" stroke="#f43f5e" stroke-width="1.8"/>
+            <path d="M13 3v20M3 13h20" stroke="#f43f5e" stroke-width="1.2" opacity="0.4"/>
+          </svg>
+        </div>
+        <div class="empty-title">Paste a URL to get started</div>
+        <div class="empty-sub">ElementorClone fetches the page, analyzes its layout and styling, then rebuilds it as Elementor Pro JSON you can import directly.</div>
+      </div>
+    </div>
+
+    <div class="output-body analysis-view" id="view-analysis"></div>
+
+    <div class="output-body" id="view-json" style="display:none;">
+      <textarea id="code-output" readonly spellcheck="false"></textarea>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-item">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">Ready</span>
+      </div>
+      <div class="status-item" id="stat-chars" style="display:none"><span id="char-num">0</span> chars</div>
+      <div class="status-item" id="stat-widgets" style="display:none"><span id="widget-num">0</span> widgets</div>
+      <div class="status-item" id="stat-time" style="display:none"><span id="time-num">0</span>s</div>
+    </div>
+  </section>
+
+</main>
+
+<div id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════
+   STATE
+══════════════════════════════════════════ */
+let fetchedHTML   = '';
+let fetchedURL    = '';
+let pageMeta      = {};
+let currentScope  = 'full';
+let currentJSON   = '';
+let historyItems  = [];
+
+/* ══════════════════════════════════════════
+   FETCH PAGE (via CORS proxy)
+══════════════════════════════════════════ */
+const CORS_PROXIES = [
+  url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+];
+
+async function fetchPage() {
+  let url = document.getElementById('target-url').value.trim();
+  if (!url) { toast('Enter a URL first.', 'error'); return; }
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+
+  const statusEl = document.getElementById('fetch-status');
+  const statusText = document.getElementById('fetch-status-text');
+  statusEl.className = 'fetch-status show';
+  statusText.textContent = 'Fetching page…';
+  document.getElementById('btn-fetch').disabled = true;
+  document.getElementById('page-preview').classList.remove('show');
+
+  let html = null, lastError = null;
+
+  for (const proxyFn of CORS_PROXIES) {
+    try {
+      const proxyUrl = proxyFn(url);
+      const res = await fetch(proxyUrl);
+      if (!res.ok) { lastError = `HTTP ${res.status}`; continue; }
+      html = await res.text();
+      if (html && html.length > 200) break;
+    } catch (e) {
+      lastError = e.message;
+    }
+  }
+
+  document.getElementById('btn-fetch').disabled = false;
+
+  if (!html) {
+    statusEl.className = 'fetch-status show error';
+    statusText.textContent = `Could not fetch page (${lastError || 'unknown error'}). Site may block proxies.`;
+    toast('Fetch failed — try a different URL', 'error');
+    document.getElementById('btn-generate').disabled = true;
+    return;
+  }
+
+  fetchedHTML = html;
+  fetchedURL  = url;
+  pageMeta    = analyzeHTML(html, url);
+
+  statusEl.className = 'fetch-status show success';
+  statusText.textContent = `Fetched successfully — ${(html.length / 1024).toFixed(1)} KB`;
+
+  // Show preview
+  document.getElementById('preview-domain').textContent   = new URL(url).hostname;
+  document.getElementById('preview-size').textContent     = `${(html.length/1024).toFixed(1)} KB`;
+  document.getElementById('preview-elements').textContent = `${pageMeta.elementCount} elements`;
+  document.getElementById('preview-title').textContent    = pageMeta.title || '(no title found)';
+  document.getElementById('preview-desc').textContent     = pageMeta.description || '(no meta description)';
+  document.getElementById('page-preview').classList.add('show');
+
+  document.getElementById('output-name').textContent = pageMeta.title || new URL(url).hostname;
+
+  const genBtn = document.getElementById('btn-generate');
+  genBtn.disabled = false;
+  document.getElementById('btn-label').textContent = 'Analyze & Clone';
+
+  toast('Page fetched! Review details, then clone.', 'success');
+}
+
+/* ══════════════════════════════════════════
+   LIGHTWEIGHT HTML ANALYSIS (client-side, no AI)
+══════════════════════════════════════════ */
+function analyzeHTML(html, url) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+
+  const title = doc.querySelector('title')?.textContent?.trim() || '';
+  const description = doc.querySelector('meta[name="description"]')?.getAttribute('content')
+    || doc.querySelector('meta[property="og:description"]')?.getAttribute('content') || '';
+
+  // Count structural elements
+  const elementCount = doc.querySelectorAll('h1,h2,h3,h4,p,a,img,button,section,div').length;
+
+  // Extract main visible text content from body (rough)
+  const bodyText = doc.body ? doc.body.textContent.replace(/\s+/g, ' ').trim().slice(0, 3000) : '';
+
+  // Get headings structure — this drives section detection
+  const headings = [...doc.querySelectorAll('h1,h2,h3,h4')].map(h => ({
+    tag: h.tagName.toLowerCase(),
+    text: h.textContent.trim().slice(0, 150),
+  })).filter(h => h.text).slice(0, 40);
+
+  // Get images
+  const images = [...doc.querySelectorAll('img')].map(img => {
+    let src = img.getAttribute('src') || img.getAttribute('data-src') || '';
+    try { src = new URL(src, url).href; } catch {}
+    return src;
+  }).filter(Boolean).slice(0, 20);
+
+  // Get buttons/CTAs
+  const buttons = [...doc.querySelectorAll('button, a.btn, a[class*="button"], input[type="submit"]')]
+    .map(b => b.textContent.trim() || b.value || '').filter(Boolean).slice(0, 20);
+
+  // Get list items (often features/checklists)
+  const listItems = [...doc.querySelectorAll('li')].map(li => li.textContent.trim().slice(0, 150))
+    .filter(Boolean).slice(0, 40);
+
+  return {
+    title, description,
+    elementCount,
+    bodyText,
+    headings,
+    images,
+    buttons,
+    listItems,
+    rawHTMLSample: html.slice(0, 15000), // capped sample for Claude — structure reference
+  };
+}
+
+/* ══════════════════════════════════════════
+   SCOPE / SETTINGS
+══════════════════════════════════════════ */
+function setScope(btn) {
+  document.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentScope = btn.dataset.val;
+}
+
+function toggleApiKey() {
+  const inp = document.getElementById('api-key');
+  const btn = document.querySelector('.api-toggle');
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'Hide'; }
+  else { inp.type = 'password'; btn.textContent = 'Show'; }
+}
+
+/* ══════════════════════════════════════════
+   CLONE — STEP 1: STRUCTURE ANALYSIS
+══════════════════════════════════════════ */
+function buildAnalysisPrompt(meta, scope) {
+  return `You are analyzing a webpage to plan a STRUCTURAL Elementor Pro clone.
+
+Your only job is layout and content mapping — NOT styling. Colors and fonts will be set manually afterward, so don't worry about visual design.
+
+Output a JSON object describing the page structure. Schema:
+{
+  "title": "page title",
+  "sections": [
+    {
+      "name": "Section Name (e.g. Hero, Features, Footer)",
+      "layout": "1-col | 2-col-50/50 | 2-col-60/40 | 2-col-40/60 | 3-col | 4-col",
+      "elements": [
+        { "type": "heading|text|button|image|icon-box|list", "content": "actual text/content from the page", "tag": "h1/h2/etc if heading" }
+      ]
+    }
+  ]
+}
+
+RULES:
+- Use REAL content extracted from the page data below — do not invent content
+- Infer section boundaries from headings, structure, and content groupings
+- Map each distinct content block to the correct widget type (heading for titles, text for paragraphs, button for CTAs, image for images, icon-box for feature cards, list for bullet/checklist groups)
+- Infer column layout from how content is grouped (e.g. 3 similar feature blocks side by side = 3-col)
+- ${scope === 'visible' ? 'Only include the first 1-2 sections (above the fold)' : 'Include all sections found, in page order'}
+- Output ONLY the JSON object. First char "{", last char "}". No markdown.
+
+PAGE DATA:
+URL: ${fetchedURL}
+Title: ${meta.title}
+Description: ${meta.description}
+
+Headings found (in order):
+${meta.headings.map(h => `${h.tag.toUpperCase()}: ${h.text}`).join('\n')}
+
+Buttons/CTAs found:
+${meta.buttons.join(' | ')}
+
+List items found (features/checklists):
+${meta.listItems.slice(0, 20).join(' | ')}
+
+Body text sample (for context, may be truncated):
+${meta.bodyText.slice(0, 2000)}
+
+Raw HTML sample (for structural reference — tag nesting, repeated patterns):
+${meta.rawHTMLSample.slice(0, 8000)}`;
+}
+
+async function cloneSite() {
+  const apiKey = document.getElementById('api-key').value.trim();
+  if (!apiKey) { toast('Add your Anthropic API key first.', 'error'); return; }
+  if (!fetchedHTML) { toast('Fetch a page first.', 'error'); return; }
+
+  const keepImages = document.getElementById('opt-images').checked;
+
+  setLoading(true, 'Analyzing structure…');
+  setStatus('blue', 'Analyzing…');
+  showStage('analyzing');
+
+  const t0 = Date.now();
+
+  try {
+    // STEP 1: Analyze structure
+    const analysisPrompt = buildAnalysisPrompt(pageMeta, currentScope);
+    const analysisRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: analysisPrompt }],
+      }),
+    });
+
+    if (!analysisRes.ok) {
+      const e = await analysisRes.json().catch(() => ({}));
+      throw new Error(e?.error?.message || `HTTP ${analysisRes.status}`);
+    }
+
+    const analysisData = await analysisRes.json();
+    const analysisRaw  = analysisData.content?.[0]?.text || '';
+    const analysis = extractJSONObject(analysisRaw);
+    if (!analysis || !analysis.sections) throw new Error('Could not analyze page structure.');
+
+    renderAnalysis(analysis);
+    showStage('analysis');
+    setStatus('green', `Found ${analysis.sections.length} sections — building JSON…`);
+
+    // STEP 2: Generate Elementor JSON per section
+    setLoading(true, 'Building JSON…');
+    showStage('json');
+    const area = document.getElementById('code-output');
+    area.value = `// Cloning ${analysis.sections.length} sections from ${new URL(fetchedURL).hostname}…\n\n`;
+
+    const allContainers = [];
+    // structure-only — no color/font extraction
+
+
+    for (let i = 0; i < analysis.sections.length; i++) {
+      const sec = analysis.sections[i];
+      setLoading(true, `Building ${i+1}/${analysis.sections.length}: ${sec.name}…`);
+      setStatus('blue', `Building ${i+1}/${analysis.sections.length}: ${sec.name}…`);
+      area.value += `// ── Section ${i+1}/${analysis.sections.length}: ${sec.name} ──\n`;
+
+      const systemPrompt = buildElementorSystemPrompt();
+      const sectionPrompt = `Build this ONE section as Elementor Pro JSON (container model). Output a JSON array with exactly one top-level container.
+
+SECTION: ${sec.name}
+LAYOUT: ${sec.layout}
+
+ELEMENTS:
+${JSON.stringify(sec.elements, null, 2)}
+
+${keepImages ? 'Use these original image URLs where relevant: ' + (pageMeta.images.slice(0,5).join(', ') || 'none found') : 'Use placeholder images.'}
+
+Focus purely on correct structure: right widget types, right layout/columns, real content in the right slots. Use neutral default colors (white/light gray backgrounds, dark gray text #0D0E12 headings, #54494B body) — the user will restyle manually afterward.
+
+Output ONLY a JSON array starting with "[" ending with "]". No markdown.`;
+
+      let raw = '', stopReason = '';
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 8000,
+          stream: true,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: sectionPrompt }],
+        }),
+      });
+
+      if (!res.ok) {
+        area.value += `// ⚠ Section "${sec.name}" failed — skipped\n`;
+        continue;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        for (const line of chunk.split('\n')) {
+          if (!line.startsWith('data: ')) continue;
+          const payload = line.slice(6).trim();
+          if (payload === '[DONE]') break;
+          try {
+            const evt = JSON.parse(payload);
+            if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') raw += evt.delta.text;
+            if (evt.type === 'message_delta' && evt.delta?.stop_reason) stopReason = evt.delta.stop_reason;
+          } catch {}
+        }
+      }
+
+      const jsonText = extractJSON(raw);
+      if (!jsonText) { area.value += `// ⚠ "${sec.name}" returned no JSON — skipped\n`; continue; }
+
+      let parsed;
+      try { parsed = JSON.parse(jsonText); }
+      catch {
+        const repaired = smartRepairJSON(jsonText);
+        try { parsed = JSON.parse(repaired); area.value += `// ⚠ "${sec.name}" auto-repaired\n`; }
+        catch { area.value += `// ⚠ "${sec.name}" malformed — skipped\n`; continue; }
+      }
+
+      if (Array.isArray(parsed)) allContainers.push(...parsed);
+      else if (parsed?.elType) allContainers.push(parsed);
+
+      area.value += `// ✓ ${sec.name} done\n`;
+    }
+
+    if (allContainers.length === 0) throw new Error('No sections were cloned successfully.');
+
+    currentJSON = JSON.stringify(allContainers);
+    area.value = JSON.stringify(allContainers, null, 2);
+
+    const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+    showStage('json');
+    setStatus('green', `Cloned — ${allContainers.length} sections`);
+    showStats(currentJSON, elapsed);
+    addHistory(pageMeta.title || fetchedURL, fetchedURL);
+    toast(`Clone complete! ${allContainers.length} section(s) built.`, 'success');
+
+  } catch (err) {
+    showStage('empty');
+    setStatus('red', 'Error');
+    toast(err.message || 'Clone failed.', 'error');
+    console.error(err);
+  } finally {
+    setLoading(false);
+  }
+}
+
+/* ══════════════════════════════════════════
+   ELEMENTOR SYSTEM PROMPT (container model)
+══════════════════════════════════════════ */
+function buildElementorSystemPrompt() {
+  return `You are an expert Elementor Pro developer. Output ONLY raw Elementor JSON using the FLEXBOX CONTAINER model.
+
+YOUR ONLY GOAL: correct STRUCTURE. Map the right content into the right widget types, with the right layout/columns, in the right order. Styling (colors, fonts, spacing) is NOT your concern — use the flat neutral defaults below exactly as given on every element. The user will restyle everything manually in Elementor afterward, so don't try to guess or invent brand colors.
+
+CRITICAL: Use elType "container" only — never "section" or "column" (those are the deprecated model).
+
+NEUTRAL DEFAULTS — use these exact values everywhere, do not vary them:
+  Background (sections): #FFFFFF
+  Heading text color: #0D0E12
+  Body text color: #54494B
+  Button background: #6366F1
+  Button text: #FFFFFF
+  Icon color: #6366F1
+  Font family (all widgets): "Inter"
+  Border radius (buttons/images): 6px
+
+CONTAINER (outer):
+{ "id":"XXXXXXX","elType":"container","isInner":false,"settings":{"flex_direction":"row","content_width":"boxed","padding":{"unit":"px","top":"60","right":"0","bottom":"60","left":"0","isLinked":false},"background_background":"classic","background_color":"#FFFFFF"},"elements":[] }
+
+CONTAINER (inner, replaces column):
+{ "id":"XXXXXXX","elType":"container","isInner":true,"settings":{"flex_direction":"column","content_width":"full","width":{"unit":"%","size":50,"sizes":[]},"padding":{"unit":"px","top":"0","right":"20","bottom":"0","left":"20","isLinked":false}},"elements":[] }
+
+Width guide: 2-col-50/50 both 50. 2-col-60/40 60 and 40. 3-col 33.33 each. 4-col 25 each. 1-col 100.
+
+WIDGET heading: { "id":"XXXXXXX","elType":"widget","isInner":false,"widgetType":"heading","settings":{"title":"Text","header_size":"h2","align":"left","title_color":"#0D0E12","typography_typography":"custom","typography_font_family":"Inter","typography_font_size":{"unit":"px","size":36,"sizes":[]},"typography_font_weight":"700"},"elements":[] }
+header_size: h1 for the main page title, h2 for section titles, h3 for card titles, h4 for sub-labels.
+
+WIDGET text-editor: { "id":"XXXXXXX","elType":"widget","isInner":false,"widgetType":"text-editor","settings":{"editor":"<p>Text</p>","align":"left","text_color":"#54494B","typography_typography":"custom","typography_font_family":"Inter","typography_font_size":{"unit":"px","size":16,"sizes":[]}},"elements":[] }
+
+WIDGET button: { "id":"XXXXXXX","elType":"widget","isInner":false,"widgetType":"button","settings":{"text":"Click","link":{"url":"#"},"background_color":"#6366F1","button_text_color":"#FFFFFF","border_radius":{"unit":"px","top":"6","right":"6","bottom":"6","left":"6","isLinked":true},"typography_typography":"custom","typography_font_family":"Inter","typography_font_weight":"600"},"elements":[] }
+
+WIDGET image: { "id":"XXXXXXX","elType":"widget","isInner":false,"widgetType":"image","settings":{"image":{"url":"IMAGE_URL","id":""},"image_size":"full","align":"center","_border_radius":{"unit":"px","top":"6","right":"6","bottom":"6","left":"6","isLinked":true}},"elements":[] }
+If no real image URL is available for a slot, use: https://placehold.co/800x600/EEF2FF/6366f1?text=Image
+
+WIDGET icon-box: { "id":"XXXXXXX","elType":"widget","isInner":false,"widgetType":"icon-box","settings":{"selected_icon":{"value":"fas fa-check-circle","library":"fa-solid"},"title_text":"Title","description_text":"Desc","title_color":"#0D0E12","description_color":"#54494B","primary_color":"#6366F1","typography_typography":"custom","typography_font_family":"Inter"},"elements":[] }
+Pick a sensibly matching Font Awesome icon for each icon-box based on its content (e.g. fas fa-shield-alt for security, fas fa-bolt for speed, fas fa-chart-line for growth) — exact icon choice doesn't need to be perfect since the user can swap it.
+
+WIDGET icon-list: { "id":"XXXXXXX","elType":"widget","isInner":false,"widgetType":"icon-list","settings":{"icon_list":[{"_id":"XXXXXXX","text":"Item","selected_icon":{"value":"fas fa-check","library":"fa-solid"}}],"icon_color":"#6366F1","text_color":"#54494B"},"elements":[] }
+
+WIDGET spacer: { "id":"XXXXXXX","elType":"widget","isInner":false,"widgetType":"spacer","settings":{"space":{"unit":"px","size":24,"sizes":[]}},"elements":[] }
+
+WIDGET divider: { "id":"XXXXXXX","elType":"widget","isInner":false,"widgetType":"divider","settings":{"style":"solid","weight":{"unit":"px","size":1,"sizes":[]},"color":"rgba(0,0,0,0.08)"},"elements":[] }
+
+STRUCTURAL MAPPING RULES:
+- "heading" type input → heading widget (pick header_size by original tag level: h1→h1, h2→h2, h3→h3, h4→h4)
+- "text" type input → text-editor widget
+- "button" type input → button widget
+- "image" type input → image widget
+- "icon-box" type input → icon-box widget (used for repeated feature/benefit cards)
+- "list" type input → icon-list widget
+- Group repeated similar elements (e.g. 3 feature cards) into side-by-side inner containers, not stacked
+
+RULES:
+- Widget-level background/border use underscore prefix: "_background_color", "_border_radius", "_padding"
+- Container-level uses no underscore: "background_color", "padding"
+- typography_typography must be "custom" whenever font settings are set
+- Every id: unique 7-char lowercase alphanumeric, never reused
+- Use REAL content provided in the input — never invent placeholder text
+- Output starts with [ ends with ]. No markdown, no explanation.`;
+}
+
+/* ══════════════════════════════════════════
+   ANALYSIS RENDERER
+══════════════════════════════════════════ */
+function renderAnalysis(analysis) {
+  const container = document.getElementById('view-analysis');
+  let html = `<div style="margin-bottom:8px;">
+    <div style="font-size:15px;font-weight:700;color:var(--text-dark);">${analysis.title || 'Page Structure'}</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">${analysis.sections.length} sections detected · building Elementor JSON now</div>
+  </div>`;
+
+  analysis.sections.forEach((sec, i) => {
+    html += `<div class="analysis-section">
+      <div class="analysis-header">
+        <div class="analysis-num">${i+1}</div>
+        <div class="analysis-name">${sec.name}</div>
+        <div class="analysis-layout">${sec.layout || ''}</div>
+      </div>
+      <div class="analysis-body">${(sec.elements||[]).map(el => `<div>• <strong>${el.type}</strong>: ${(el.content||'').slice(0,80)}${(el.content||'').length>80?'…':''}</div>`).join('')}</div>
+    </div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+/* ══════════════════════════════════════════
+   JSON UTILITIES
+══════════════════════════════════════════ */
+function extractJSON(raw) {
+  raw = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+  const start = raw.indexOf('[');
+  const end   = raw.lastIndexOf(']');
+  if (start === -1 || end === -1 || end <= start) return null;
+  return raw.slice(start, end + 1);
+}
+
+function extractJSONObject(raw) {
+  raw = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+  const first = raw.indexOf('{');
+  if (first === -1) return null;
+  let depth = 0, end = -1;
+  for (let i = first; i < raw.length; i++) {
+    if (raw[i] === '{') depth++;
+    else if (raw[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+  }
+  if (end === -1) return null;
+  try { return JSON.parse(raw.slice(first, end + 1)); } catch { return null; }
+}
+
+function smartRepairJSON(str) {
+  str = str.replace(/,\s*([}\]])/g, '$1');
+  const lastBrace = str.lastIndexOf('}');
+  if (lastBrace !== -1) {
+    let attempt = str.slice(0, lastBrace + 1).replace(/,\s*$/, '');
+    const ob = (attempt.match(/{/g) || []).length, cb = (attempt.match(/}/g) || []).length;
+    const oa = (attempt.match(/\[/g) || []).length, ca = (attempt.match(/\]/g) || []).length;
+    for (let i = 0; i < ob - cb; i++) attempt += '}';
+    for (let i = 0; i < oa - ca; i++) attempt += ']';
+    try { JSON.parse(attempt); return attempt; } catch {}
+  }
+  return str;
+}
+
+function wrapForElementor(jsonStr, title) {
+  return { version: '0.4', title: title || 'Cloned Page', type: 'page', page_settings: {}, content: JSON.parse(jsonStr) };
+}
+
+/* ══════════════════════════════════════════
+   STAGE MANAGEMENT
+══════════════════════════════════════════ */
+function showStage(stage) {
+  document.getElementById('view-empty').style.display = stage === 'empty' ? 'flex' : 'none';
+  document.getElementById('view-analysis').classList.toggle('show', stage === 'analysis' || stage === 'analyzing');
+  document.getElementById('view-json').style.display = stage === 'json' ? 'block' : 'none';
+  document.getElementById('toolbar-json-actions').style.display = stage === 'json' ? 'flex' : 'none';
+
+  const badge = document.getElementById('stage-badge');
+  if (stage === 'empty') { badge.style.display = 'none'; }
+  else if (stage === 'analyzing' || stage === 'analysis') {
+    badge.style.display = 'inline-block'; badge.className = 'stage-badge building'; badge.textContent = 'Analyzing';
+  } else {
+    badge.style.display = 'inline-block'; badge.className = 'stage-badge done'; badge.textContent = 'JSON Ready';
+  }
+
+  if (stage === 'analyzing') {
+    document.getElementById('view-analysis').innerHTML = `<div style="font-size:13px;color:var(--text-muted);">Analyzing page structure…</div>`;
+  }
+}
+
+/* ══════════════════════════════════════════
+   UI HELPERS
+══════════════════════════════════════════ */
+function setLoading(on, label = 'Analyze & Clone') {
+  document.getElementById('btn-generate').disabled = on || !fetchedHTML;
+  document.getElementById('spinner').style.display  = on ? 'block' : 'none';
+  document.getElementById('btn-icon').style.display = on ? 'none' : 'block';
+  document.getElementById('btn-label').textContent  = on ? label : 'Analyze & Clone';
+}
+
+function setStatus(color, text) {
+  document.getElementById('status-dot').className = 'status-dot' + (color ? ' ' + color : '');
+  document.getElementById('status-text').textContent = text;
+}
+
+function showStats(json, elapsed) {
+  document.getElementById('stat-chars').style.display   = 'flex';
+  document.getElementById('stat-widgets').style.display = 'flex';
+  document.getElementById('stat-time').style.display    = 'flex';
+  document.getElementById('char-num').textContent   = json.length.toLocaleString();
+  document.getElementById('widget-num').textContent = countWidgets(JSON.parse(json));
+  document.getElementById('time-num').textContent   = elapsed;
+}
+
+function countWidgets(obj) {
+  if (!obj) return 0;
+  if (Array.isArray(obj)) return obj.reduce((s, i) => s + countWidgets(i), 0);
+  if (typeof obj === 'object') {
+    let n = obj.elType === 'widget' ? 1 : 0;
+    if (obj.elements) n += countWidgets(obj.elements);
+    return n;
+  }
+  return 0;
+}
+
+function copyJSON() {
+  if (!currentJSON) return;
+  const title = document.getElementById('output-name').textContent;
+  navigator.clipboard.writeText(JSON.stringify(wrapForElementor(currentJSON, title), null, 2)).then(() => toast('Copied!', 'success'));
+}
+
+function validateJSON() {
+  if (!currentJSON) return;
+  try {
+    const parsed = JSON.parse(currentJSON);
+    const containers = Array.isArray(parsed) ? parsed.filter(s => s.elType === 'container' && !s.isInner).length : 0;
+    toast(`✓ Valid — ${containers} container(s), ${countWidgets(parsed)} widget(s)`, 'success');
+  } catch (e) { toast('Invalid: ' + e.message, 'error'); }
+}
+
+function downloadJSON() {
+  if (!currentJSON) return;
+  const title = document.getElementById('output-name').textContent;
+  const pretty = JSON.stringify(wrapForElementor(currentJSON, title), null, 2);
+  const blob = new Blob([pretty], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (title.replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0,50) || 'cloned-page') + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Downloading…');
+}
+
+/* ══════════════════════════════════════════
+   HISTORY
+══════════════════════════════════════════ */
+function addHistory(name, url) {
+  historyItems.unshift({ name, url, json: currentJSON });
+  if (historyItems.length > 8) historyItems.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  if (!historyItems.length) { list.innerHTML = '<div style="font-size:11px;color:var(--text-muted);padding:4px 8px;">Nothing yet.</div>'; return; }
+  list.innerHTML = historyItems.map((item, i) => `
+    <div class="history-item ${i===0?'active':''}" onclick="loadHistory(${i})">
+      <div class="history-dot"></div>
+      <div class="history-name">${item.name.length > 36 ? item.name.slice(0,36)+'…' : item.name}</div>
+    </div>`).join('');
+}
+
+function loadHistory(i) {
+  const item = historyItems[i];
+  if (!item) return;
+  currentJSON = item.json;
+  document.getElementById('output-name').textContent = item.name;
+  document.getElementById('code-output').value = JSON.stringify(JSON.parse(item.json), null, 2);
+  showStage('json');
+  document.querySelectorAll('.history-item').forEach((el, idx) => el.classList.toggle('active', idx === i));
+}
+
+/* ══════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════ */
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (type ? ' ' + type : '');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.className = '', 3200);
+}
+
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    if (fetchedHTML) cloneSite(); else fetchPage();
+  }
+});
+
+showStage('empty');
+</script>
+</body>
+</html>
